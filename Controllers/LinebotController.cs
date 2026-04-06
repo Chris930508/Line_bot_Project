@@ -56,7 +56,6 @@ namespace Line_bot.Controllers
             double allowDistance = _configuration.GetValue<double>("CheckInSettings:AllowDistance");
             string companyName = _configuration.GetValue<string>("CheckInSettings:CompanyName");
 
-
             if ((lineEvent.message.type == "text")&&(lineEvent.message.text.Contains("打卡座標")))
             {
 
@@ -79,7 +78,8 @@ namespace Line_bot.Controllers
                         Category = "上班打卡",
                         Checktime = DateTime.Now,
 
-                    };
+                    }
+                ;
                     _webContext.Check.Add(newRecord);
                     _webContext.SaveChanges();
                     string successMsg = $"✅ 上班打卡成功！\n⏰ 時間：{DateTime.Now:HH:mm}";
