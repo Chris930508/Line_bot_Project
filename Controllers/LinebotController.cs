@@ -47,6 +47,11 @@ namespace Line_bot.Controllers
             string bodyContent = await new StreamReader(Request.Body).ReadToEndAsync();
             
             var receivedMessage = isRock.LineBot.Utility.Parsing(bodyContent);
+            if (receivedMessage == null || receivedMessage.events == null || receivedMessage.events.Count == 0)
+            {
+                // 這是為了應付 LINE Developers 的 Verify 按鈕（它會傳送空事件）
+                return Ok();
+            }
             var lineEvent = receivedMessage.events[0];
             var replytoken = lineEvent.replyToken;
             var userId = lineEvent.source.userId;
