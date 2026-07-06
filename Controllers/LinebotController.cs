@@ -1,8 +1,10 @@
 ﻿using Azure.Core;
+using isRock.LineBot;
 using Line_bot.Models;
 using Microsoft.AspNetCore.Mvc;
-
-
+using Microsoft.VisualBasic;
+using Newtonsoft.Json;
+using System.Timers;
 
 namespace Line_bot.Controllers
 {
@@ -59,18 +61,18 @@ namespace Line_bot.Controllers
             double companyLat = _configuration.GetValue<double>("CheckInSettings:CompanyLat");
             double companyLng = _configuration.GetValue<double>("CheckInSettings:CompanyLng");
             double allowDistance = _configuration.GetValue<double>("CheckInSettings:AllowDistance");
-            string companyName = _configuration.GetValue<string>("CheckInSettings:CompanyName");
+            string companyName = _configuration["CheckInSettings:CompanyName"];
 
-            if ((lineEvent.message.type == "text")&&(lineEvent.message.text.Contains("打卡座標")))
+            if ((lineEvent.message.type == "text") && (lineEvent.message.text.Contains("打卡座標")))
             {
 
 
                 var data = lineEvent.message.text.Replace("打卡座標:", "").Split(',');
 
-              
-                    double lat = double.Parse(data[0]);
-                    double lng = double.Parse(data[1]);
-                    string addr = lineEvent.message.address;
+
+                double lat = double.Parse(data[0]);
+                double lng = double.Parse(data[1]);
+                string addr = lineEvent.message.address;
 
                 double dist = GetDistance(lat, lng, companyLat, companyLng);
 
@@ -82,14 +84,14 @@ namespace Line_bot.Controllers
                         Lineuserid = userId,
                         Category = "上班打卡",
                         Checktime = DateTime.Now,
+                        Distance = (decimal)dist,
+                    };
 
-                    }
-                ;
                     _webContext.Check.Add(newRecord);
                     _webContext.SaveChanges();
-                    string successMsg = $"✅ 上班打卡成功！\n⏰ 時間：{DateTime.Now:HH:mm}";
-                    isRock.LineBot.Utility.ReplyMessage(replytoken, successMsg, channelAccessToken);
 
+
+                    isRock.LineBot.Utility.ReplyMessageWithJSON(replytoken, GetFlexJson("上班打卡", "#1DB446", ""), channelAccessToken);
                 }
                 else
                 {
@@ -121,11 +123,12 @@ namespace Line_bot.Controllers
                         Lineuserid = userId,
                         Checktime = DateTime.Now,
                         Category = "下班打卡"
+                    
                     };
                     _webContext.Check.Add(offWork);
                     _webContext.SaveChanges();
-                    var successtext = $"✅ 下班打卡成功！\n今日上班時間：{ontime:HH:mm}\n今日總工時：{time}\n辛苦了！";
-                    isRock.LineBot.Utility.ReplyMessage(replytoken, successtext, channelAccessToken);
+
+                    isRock.LineBot.Utility.ReplyMessageWithJSON(replytoken, GetFlexJson("下班打卡", "#FF5722", time), channelAccessToken);
 
                 }
 
@@ -143,19 +146,20 @@ namespace Line_bot.Controllers
                 }
                 else
                 {
-                     string mesg= "📌 您的最近打卡紀錄：\n";
-                        
-                        foreach(var r in myrecords)
+                    //   string mesg= "📌 您的最近打卡紀錄：\n";
+
+                    //      foreach(var r in myrecords)
                     {
-                        mesg += $"{r.Checktime.Value:MM/dd HH:mm} |{r.Category}\n";
+                        //        mesg += $"{r.Checktime.Value:MM/dd HH:mm} |{r.Category}\n";
                     }
-                  isRock.LineBot.Utility.ReplyMessage (replytoken, mesg.Trim(), channelAccessToken);
-                
+                    // isRock.LineBot.Utility.ReplyMessage (replytoken, mesg.Trim(), channelAccessToken);
+
+                    isRock.LineBot.Utility.ReplyMessageWithJSON(replytoken, GetHistoryFlexJson(myrecords), channelAccessToken);
                 }
 
 
             }
-  
+           
                 return Ok();
         }
 
@@ -184,6 +188,95 @@ namespace Line_bot.Controllers
             double c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
             return r * c; // 回傳公里數
         }
+
+        private string GetHistoryFlexJson(System.Collections.Generic.IEnumerable<dynamic> myrecords)
+        {
+            var rows = new System.Collections.Generic.List<string>();
+
+            foreach (var r in myrecords)
+            {
+                // 1. 強制轉換時間與類別，確保不因 dynamic 導致轉型失敗
+                DateTime dt = (DateTime)r.Checktime;
+               
+                string category = r.Category.ToString();
+                string color = category.Contains("上班") ? "#1DB446" : "#FF5722";
+
+                
+                rows.Add($@"{{
+            ""type"": ""box"",
+            ""layout"": ""horizontal"",
+            ""margin"": ""md"",
+            ""contents"": [
+                {{ ""type"": ""text"", ""text"": ""{dt:MM/dd HH:mm}"", ""size"": ""sm"", ""color"": ""#666666"", ""flex"": 3 }},
+                {{ ""type"": ""text"", ""text"": ""{category}"", ""size"": ""sm"", ""color"": ""{color}"", ""align"": ""end"", ""weight"": ""bold"", ""flex"": 2 }}
+            ]
+        }}");
+            }
+
+            string allRowsJson = string.Join(",", rows);
+
+            return $@" [{{ ""type"": ""flex"", ""altText"": ""紀錄查詢"", ""contents"": {{
+        ""type"": ""bubble"",
+        ""header"": {{ ""type"": ""box"", ""layout"": ""vertical"", ""contents"": [{{ ""type"": ""text"", ""text"": ""📌 最近打卡紀錄"", ""weight"": ""bold"", ""size"": ""lg"", ""color"": ""#1DB446"" }}] }},
+        ""body"": {{ ""type"": ""box"", ""layout"": ""vertical"", ""contents"": [ {allRowsJson} ] }}
+    }} }}] ";
+        }
+
+
+
+        private string GetFlexJson(string title, string titlecolor,string time)
+        {
+            string dateStr = DateTime.Now.ToString("yyyy/MM/dd");
+            string timeStr = DateTime.Now.ToString("HH:mm");
+            string location = _configuration["CheckInSettings:CompanyName"];
+            string workTimeSection = "";
+
+            if (!string.IsNullOrEmpty(time))
+            {
+                workTimeSection = $@",
+                  {{
+                    ""type"": ""box"",
+                    ""layout"": ""horizontal"",
+                    ""contents"": [
+                      {{ ""type"": ""text"", ""text"": ""今日總工時"", ""size"": ""sm"", ""color"": ""#555555"", ""flex"": 0 }},
+                      {{ ""type"": ""text"", ""text"": ""{time}"", ""size"": ""sm"", ""color"": ""#111111"", ""align"": ""end"", ""weight"": ""bold"" }}
+                    ]
+                  }}";
+            }
+
+            return $@"
+    [
+      {{
+        ""type"": ""flex"",
+        ""altText"": ""打卡成功通知"",
+        ""contents"": {{
+          ""type"": ""bubble"",
+          ""body"": {{
+            ""type"": ""box"",
+            ""layout"": ""vertical"",
+            ""contents"": [
+              {{ ""type"": ""text"", ""text"": ""{title}成功"", ""weight"": ""bold"", ""color"": ""{titlecolor}"", ""size"": ""sm"" }},
+              {{ ""type"": ""text"", ""text"": ""{location}"", ""weight"": ""bold"", ""size"": ""xxl"", ""margin"": ""md"" }},
+              {{ ""type"": ""text"", ""text"": ""{dateStr}"", ""size"": ""xs"", ""color"": ""#aaaaaa"", ""margin"": ""xs"" }},
+              {{ ""type"": ""separator"", ""margin"": ""xxl"" }},
+              {{ ""type"": ""box"", ""layout"": ""vertical"", ""margin"": ""xxl"", ""spacing"": ""sm"", ""contents"": [
+                  {{
+                    ""type"": ""box"",
+                    ""layout"": ""horizontal"",
+                    ""contents"": [
+                      {{ ""type"": ""text"", ""text"": ""打卡時間"", ""size"": ""sm"", ""color"": ""#555555"", ""flex"": 0 }},
+                      {{ ""type"": ""text"", ""text"": ""{timeStr}"", ""size"": ""sm"", ""color"": ""#111111"", ""align"": ""end"" }}
+                    ]
+                  }}
+                  {workTimeSection} 
+              ]}}
+            ]
+          }}
+        }}
+      }}
+    ]";
+        }
+
 
     }
 }
