@@ -1,15 +1,15 @@
-# 📌 LINE Messaging API 與 LIFF 開發的打卡系統
+#  LINE Messaging API 與 LIFF 開發的打卡系統
 
 > 員工點選 LINE 選單後開啟 LIFF 網頁，自動取得 GPS 座標回傳後端驗證，打卡紀錄存入 SQL Server，整個系統以 Docker 容器化部署至 Azure。
 
 ---
 
-## 🔗 專案資源與示範影片
+##  專案資源與示範影片
 
 * 🎬 [觀看系統操作示範影片 (YouTube)](https://youtube.com/shorts/U6bdkFMjfAo?si=iXpH4v9_cTMDQvTi)
 ---
 
-## 🚀 功能特色
+##  功能特色
 
 * **LIFF 定位打卡**：開啟 LIFF 頁面自動請求 GPS 定位，提升使用者體驗。
 * **GPS 範圍驗證**：後端即時計算使用者與指定地點距離，防止遠端虛假打卡。
@@ -21,7 +21,7 @@
 
 ---
 
-## 🛠️ 技術架構
+##  技術架構
 
 | 類別 | 技術 |
 |------|------|
@@ -34,7 +34,7 @@
 
 ---
 
-## 🔄 打卡流程
+##  打卡流程
 
 ```
 
