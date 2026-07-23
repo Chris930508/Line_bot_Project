@@ -4,3 +4,4 @@
 *.user
 appsettings.json
 appsettings.Development.json
+.DS_Store

@@ -36,7 +36,8 @@ namespace Line_bot.Controllers
             var check = _webContext.Check.Find(id);
             if (check == null)
             {
-                return NotFound("找不到");           }
+            return NotFound("找不到");           
+            }
             return check.Id;
         }
 
@@ -222,7 +223,7 @@ namespace Line_bot.Controllers
     }} }}] ";
         }
 
-
+    
 
         private string GetFlexJson(string title, string titlecolor,string time)
         {
